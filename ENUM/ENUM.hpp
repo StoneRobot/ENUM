@@ -30,7 +30,7 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #pragma once
 #include "computeHash.hpp"
-#include "expandMalloc.h"
+#include "expandMacro.h"
 #include <string>
 
 // enum转string的宏

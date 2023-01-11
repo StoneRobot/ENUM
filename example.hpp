@@ -2,8 +2,6 @@
 #include <cstring>
 #include <iostream>
 
-// ENUM(Enum1, char, idleDown, idleUp, idleRight, idleLeft)
-
 // struct Example {
 //     ENUM(Enum2, char, enum3, enum4);
 // };
@@ -12,8 +10,12 @@
 //     ENUM(Enum3, char, enum5, enum6);
 // };
 
-// ENUM_TEST(Enum4, char, (ABC), (CBA, 2));
+// VC++支持两个宏，需要选择“配置属性”>“C/C++”>“命令行”属性页。
+// 修改“附加选项”属性以包含 /experimental:preprocessor，然后选择“确定”
 
+ENUM(Enum1, char, idleDown, idleUp, idleRight, idleLeft)
+// GCC 的特性不支持
+ENUM_TEST(Enum4, char, (ABC), (CBA, 2));
 
 int example()
 {

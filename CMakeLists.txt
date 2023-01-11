@@ -1,6 +1,7 @@
 cmake_minimum_required(VERSION 3.0.0)
 project(ENUM VERSION 0.1.0)
-add_compile_options(-std=c++11)
+# add_custom_command(/experimental:preprocessor)
+# build_command()
 include(CTest)
 enable_testing()
 

@@ -29,6 +29,7 @@ OR TORT (INCLUDING NEGLIGENCE OR OTHERWISE) ARISING IN ANY WAY OUT OF THE USE
 OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 
 #pragma once
+#include "PP.hpp"
 #include "computeHash.hpp"
 #include "expandMacro.h"
 #include <string>
@@ -37,117 +38,80 @@ OF THIS SOFTWARE, EVEN IF ADVISED OF THE POSSIBILITY OF SUCH DAMAGE.*/
 // 选择“配置属性”>“C/C++”>“命令行”属性页。
 // 修改“附加选项”属性以包含 /experimental:preprocessor，然后选择“确定”
 
-#define PARAM_ENUM_1(X) X
-#define PARAM_ENUM_2(X, Y) X = Y
+#define PARAM_ENUM_1(X) X,
+#define PARAM_ENUM_2(X, Y) X = Y,
 
-#define COUNT(...) ARG_N(__VA_ARGS__)
+#define PARAM_ENUM_END_1(X) X
+#define PARAM_ENUM_END_2(X, Y) X = Y
 
-#define PARAM_ENUM(X) ARG_CONCAT(ARG_CONCAT(PARAM_ENUM_, ARG_CONCAT(COUNT, X)), X)
+// 元组处理
+#define CALL_FUN(FUN, X) FUN X
+#define COUNT_BRACKET(...) ARG_N(__VA_ARGS__)
+#define PP_BRACKET(...) __VA_ARGS__
 
-#define EXPAND_AR0()
-#define EXPAND_AR1(x) PARAM_ENUM(x)
-#define EXPAND_AR2(x, ...) PARAM_ENUM(x), EXPAND_AR1(__VA_ARGS__)
-#define EXPAND_AR3(x, ...) PARAM_ENUM(x), EXPAND_AR2(__VA_ARGS__)
+#define PP_IF(FREE, THEN, ELSE) ARG_CONCAT(PP_IF_, PP_BOOL(FREE))(THEN, ELSE)
+#define PP_IF_0(THEN, ELSE) ELSE
+#define PP_IF_1(THEN, ELSE) THEN
 
-#define EXPAND_2(...) ARG_CONCAT(EXPAND_AR, ARG_N(__VA_ARGS__))(__VA_ARGS__)
+#define PARAM_ENUM_IMPL_1(X, NUM) PP_IF(NUM,                            \
+    (CALL_FUN(ARG_CONCAT(PARAM_ENUM_, CALL_FUN(COUNT_BRACKET, X)), X)), \
+    (CALL_FUN(ARG_CONCAT(PARAM_ENUM_END_, CALL_FUN(COUNT_BRACKET, X)), X)))
+
+#define PARAM_ENUM_IMPL_2(X, NUM) PP_IF(NUM, (PARAM_ENUM_1(X)), (PARAM_ENUM_END_1(X)))
+
+#define PARAM_ENUM_IMPL(X, NUM) PP_IF(PP_IS_PARENS(X), (PARAM_ENUM_IMPL_1(X, NUM)), (PARAM_ENUM_IMPL_2(X, NUM)))
+#define PARAM_ENUM(X, NUM) CALL_FUN(PP_BRACKET, CALL_FUN(PP_BRACKET, PARAM_ENUM_IMPL(X, NUM)))
 
 #define GET_PAR_1(X) X
 #define GET_PAR_2(X, Y) X
-#define GET_PAR(X) ARG_CONCAT(ARG_CONCAT(GET_PAR_, ARG_CONCAT(COUNT, X)), X)
+#define GET_PAR(X) CALL_FUN(ARG_CONCAT(GET_PAR_, CALL_FUN(COUNT_BRACKET, X)), X)
 
 #define TO_STR_(X) #X
 #define TO_STR(X) TO_STR_(X)
+#define TUPLE_STR(X) TO_STR(GET_PAR(X))
 
-#define E2S_(X)                    \
-    case (GET_PAR(X)): {           \
-        return TO_STR(GET_PAR(X)); \
+#define E2S_(X, NUM)                                     \
+    case (PP_IF(PP_IS_PARENS(X), GET_PAR(X), X)): {      \
+        return PP_IF(PP_IS_PARENS(X), TUPLE_STR(X), #X); \
     }
 
-#define S2E_(X)                                                            \
-    case (compute(0, TO_STR(GET_PAR(X)), STR_SIZE(TO_STR(GET_PAR(X))))): { \
-        Enum = GET_PAR(X);                                                 \
-        ret = true;                                                        \
-        break;                                                             \
+#define S2E_(X, NUM)                                                                                                   \
+    case (compute(0, PP_IF(PP_IS_PARENS(X), TUPLE_STR(X), #X), STR_SIZE(PP_IF(PP_IS_PARENS(X), TUPLE_STR(X), #X)))): { \
+        Enum = PP_IF(PP_IS_PARENS(X), GET_PAR(X), X);                                                                  \
+        ret = true;                                                                                                    \
+        break;                                                                                                         \
     }
 
-#define ENUM_TEST(ENUM_NAME, TYPE, ...)                                       \
-    enum ENUM_NAME : TYPE { EXPAND_2(__VA_ARGS__) };                          \
-    const char* enum2Str(ENUM_NAME Enum)                                      \
-    {                                                                         \
-        switch (Enum) {                                                       \
-            EXPAND(E2S_, __VA_ARGS__)                                         \
-        default: {                                                            \
-            break;                                                            \
-        }                                                                     \
-        }                                                                     \
-        return nullptr;                                                       \
-    }                                                                         \
-    bool str2Enum(const char* str, const unsigned int& size, ENUM_NAME& Enum) \
-    {                                                                         \
-        bool ret = false;                                                     \
-        unsigned int s = compute(0, str, size);                               \
-        switch (s) {                                                          \
-            EXPAND(S2E_, __VA_ARGS__)                                         \
-        default: {                                                            \
-            break;                                                            \
-        }                                                                     \
-        }                                                                     \
-        return ret;                                                           \
-    }                                                                         \
-    bool str2Enum(const std::string& str, ENUM_NAME& Enum)                    \
-    {                                                                         \
-        return str2Enum(str.c_str(), str.length(), Enum);                     \
-    }                                                                         \
-    const char* getEnumName(ENUM_NAME& Enum)                                  \
-    {                                                                         \
-        return #ENUM_NAME;                                                    \
+#define ENUM(ENUM_NAME, TYPE, ...)                                                   \
+    enum ENUM_NAME : TYPE { EXPAND(PARAM_ENUM, __VA_ARGS__) };                       \
+    static const char* enum2Str(ENUM_NAME Enum)                                      \
+    {                                                                                \
+        switch (Enum) {                                                              \
+            EXPAND(E2S_, __VA_ARGS__)                                                \
+        default: {                                                                   \
+            break;                                                                   \
+        }                                                                            \
+        }                                                                            \
+        return nullptr;                                                              \
+    }                                                                                \
+    static bool str2Enum(const char* str, const unsigned int& size, ENUM_NAME& Enum) \
+    {                                                                                \
+        bool ret = false;                                                            \
+        unsigned int s = compute(0, str, size);                                      \
+        switch (s) {                                                                 \
+            EXPAND(S2E_, __VA_ARGS__)                                                \
+        default: {                                                                   \
+            break;                                                                   \
+        }                                                                            \
+        }                                                                            \
+        return ret;                                                                  \
+    }                                                                                \
+    static bool str2Enum(const std::string& str, ENUM_NAME& Enum)                    \
+    {                                                                                \
+        return str2Enum(str.c_str(), str.length(), Enum);                            \
+    }                                                                                \
+    static const char* getEnumName(ENUM_NAME& Enum)                                  \
+    {                                                                                \
+        return #ENUM_NAME;                                                           \
     }
-
-/////////////////////////// GCC和VC通过
-// 选择“配置属性”>“C/C++”>“命令行”属性页。
-// 修改“附加选项”属性以包含 /experimental:preprocessor，然后选择“确定”。
-
-#define E2S(x)     \
-    case (x): {    \
-        return #x; \
-    }
-
-#define S2E(x)                             \
-    case (compute(0, #x, STR_SIZE(#x))): { \
-        Enum = x;                          \
-        ret = true;                        \
-        break;                             \
-    }
-
-#define ENUM(ENUM_NAME, TYPE, ...)                                            \
-    enum ENUM_NAME : TYPE { __VA_ARGS__ };                                    \
-    const char* enum2Str(ENUM_NAME Enum)                                      \
-    {                                                                         \
-        switch (Enum) {                                                       \
-            EXPAND(E2S, __VA_ARGS__)                                          \
-        default: {                                                            \
-            break;                                                            \
-        }                                                                     \
-        }                                                                     \
-        return nullptr;                                                       \
-    }                                                                         \
-    bool str2Enum(const char* str, const unsigned int& size, ENUM_NAME& Enum) \
-    {                                                                         \
-        bool ret = false;                                                     \
-        unsigned int s = compute(0, str, size);                               \
-        switch (s) {                                                          \
-            EXPAND(S2E, __VA_ARGS__)                                          \
-        default: {                                                            \
-            break;                                                            \
-        }                                                                     \
-        }                                                                     \
-        return ret;                                                           \
-    }                                                                         \
-    bool str2Enum(const std::string& str, ENUM_NAME& Enum)                    \
-    {                                                                         \
-        return str2Enum(str.c_str(), str.length(), Enum);                     \
-    }                                                                         \
-    const char* getEnumName(ENUM_NAME& Enum)                                  \
-    {                                                                         \
-        return #ENUM_NAME;                                                    \
-    }
+//

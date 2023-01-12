@@ -1,7 +1,6 @@
 
 #pragma once
 
-
 #define STR_SIZE(STR) (sizeof(STR) - 1)
 
 #define COMPUTE(SEED, STR, N) ((unsigned int)(SEED ^ STR[N] + 0x9e3779b9 + (SEED << 6) + (SEED >> 2)))

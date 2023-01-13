@@ -1,3 +1,4 @@
+#pragma once
 #include "ENUM/ENUM.hpp"
 #include <cstring>
 #include <iostream>
